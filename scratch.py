@@ -7,6 +7,12 @@ train_data = [
     ['Yellow', 3, 'Lemon'],
 ]
 
+train_data_reg = [
+    [10, 25, "Female", 98],
+    [20, 73, "Male", 22],
+    [35, 63, "Female", 75],
+    [40, 23, "Male", 45],
+]
 header = ["color", "diameter", "label"]
 
 
@@ -109,9 +115,47 @@ def find_best_split(rows):
     return best_gain, best_question
 
 
+def find_best_split_reg(rows):
+
+    best_mse = 0
+    best_question = None
+    n_tr_rows, n_fl_rows = 0., 0.
+
+    n_features = len(rows[0]) - 1
+    for col in range(n_features):
+        values = set([row[col] for row in rows])
+
+        for val in values:
+            question = Question(col, val)
+
+            true_rows, false_rows = partition(rows, question)
+
+            if len(true_rows) == 0 or len(false_rows) == 0:
+                continue
+
+            true_labels = [row[-1] for row in true_rows]
+            false_labels = [row[-1] for row in true_rows]
+
+            true_mean = sum(true_labels) / len(true_labels)
+            false_mean = sum(false_labels) / len(false_labels)
+
+            mse = 0
+            for tr_lbl, fl_lbl in zip(true_labels, false_labels):
+                mse += (tr_lbl - true_mean) ** 2 + (fl_lbl - false_mean) ** 2
+
+            if mse >= best_mse:
+                best_mse, best_question = mse, question
+                n_tr_rows, n_fl_rows = len(true_rows), len(false_rows)
+
+    return best_mse, best_question, n_tr_rows, n_fl_rows
+
+
 """Test code"""
 best_gain, best_q = find_best_split(train_data)
 print(best_q)
+best_mse, best_que, n_tr, n_fl = find_best_split_reg(train_data_reg)
+print(best_que, best_mse)
+
 
 
 class Leaf:
@@ -142,7 +186,26 @@ def build_tree(rows):
     return Node(true_branch, false_branch, best_q)
 
 
+min_rows = 2  # the min no of examples at which the threshold is done
+
+
+def build_regression_tree(rows):
+
+    best_gain, best_q, n_tru, n_fal = find_best_split_reg(rows)
+
+    if n_tru < 2 or n_fal < 2:
+        return Leaf(rows)
+
+    true_rows, false_rows = partition(rows, best_q)
+
+    true_branch = build_tree(true_rows)
+    false_branch = build_tree(false_rows)
+
+    return Node(true_branch, false_branch, best_q)
+
+
 tree = build_tree(train_data)
+reg_tree = build_regression_tree(train_data_reg)
 
 
 def print_tree(tree):
